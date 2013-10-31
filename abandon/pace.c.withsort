@@ -1,0 +1,382 @@
+//*************//
+//means 'TO DO'//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#define A11 d0
+#define A12 d1
+#define A21 d1
+#define A13 d2
+#define A22 d2
+#define A31 d2
+#define A14 d3
+#define A23 d3
+#define A32 d3
+#define A41 d3
+#define A24 d4
+#define A33 d4
+#define A42 d4
+#define A34 d5
+#define A43 d5
+#define A44 d6
+
+typedef enum {
+  epan, 
+  rect, 
+  gauss, 
+  gausvar, 
+  quar
+} kernel_type;
+
+#ifdef SORTNEED
+
+inline void swap (double *x, double *y);
+
+void quicksort(double *list, int m, int n);
+
+inline void mult_swap (double *x_in, double *y_in, double *count_in, int m, int n);
+
+int mult_qsort (double *x_in, double *y_in, double *count_in, int start, int end);
+
+void swap (double *x, double *y) {
+  double temp;
+  temp = *x;
+  *x = *y;
+  *y = temp;
+}
+
+void quicksort(double *list, int m, int n) {
+  double key;
+  int i, j, k;
+  if(m < n){
+    k = (m + n) / 2;
+    swap(&list[m], &list[k]);
+    key = list[m];
+    i = m + 1;
+    j = n;
+    while(i <= j) {
+      while((i <= n) && (list[i] <= key)) {
+        i++;
+      }
+      while((j >= m) && (list[j] > key)) {
+        j--;
+      }
+      if(i < j)
+        swap(&list[i], &list[j]);
+    }
+    swap(&list[m], &list[j]);
+    quicksort(list, m, j - 1);
+    quicksort(list, j + 1, n);
+  }
+}
+
+void mult_swap (double *x_in, double *y_in, double *count_in, int m, int n) {
+  double temp_x, temp_y, temp_w;
+  temp_x = x_in[m];
+  temp_y = y_in[m];
+  temp_w = count_in[m];
+  x_in[m] = x_in[n];
+  y_in[m] = y_in[n];
+  count_in[m] = count_in[n];
+  x_in[n] = temp_x;
+  y_in[n] = temp_y;
+  count_in[n] = temp_w;
+}
+
+int mult_qsort (double *x_in, double *y_in, double *count_in, int start, int end) {
+  int i, j, k;
+  double key;
+  if(start < end) {
+    k = (start + end) / 2;
+    mult_swap(x_in, y_in, count_in, k, start);
+    key = x_in[start];
+    i = start + 1;
+    j = end;
+    while(i <= j) {
+      while((i <= end) && (x_in[i] <= key)) {
+        i++;
+      }
+      while((j >= start) && (x_in[j] > key)) {
+        j--;
+      }
+      if(i < j) {
+        mult_swap(x_in, y_in, count_in, i, j);
+      }
+    }
+    mult_swap(x_in, y_in, count_in, start, j);
+    mult_qsort(x_in, y_in, count_in, start, j - 1);
+    mult_qsort(x_in, y_in, count_in, j + 1, end);
+  }
+  return 0;
+}
+
+#endif
+
+int lwls (double *bandwidthP, int *kernelP, double *x_in, double *y_in, double *count_in, 
+ double *x_out, double *output, int *n_inP, int *n_outP, 
+ int *powerP, int *cv_modeP, double *cv_value);
+
+int binning2d(double *x1, double *x2, double *y, int *num_raw, 
+ double *a10, double *a20, double *bin_length1, double *bin_length2, 
+ int* num_bins1, int* num_bins2, double *output, int *count);
+
+int lwls_seq (double *bandwidthP, int *kernelP, double *x_in, double *y_in, double *w_in, 
+ double *x_out, double *output, int *n_inP, int *n_outP, int *in_col_size, int *out_col_size, 
+ int *powerP, int *cv_modeP, double *cv_value);
+
+//**************************************************//
+// 1. clean far end of x_out
+// 2. find gap (1d and 2d) in data
+// 3. I believe there is, and also 4, 5, 6...
+// *. do these in R, not here
+
+int lwls (
+ // input stuff
+ double *bandwidthP, int *kernelP, double *x_in, double *y_in, double *count_in, 
+ // data describing stuff
+ int *n_inP, int *n_outP, bool *weight_out_need, 
+ // output stuff
+ double *x_out, double *output, double *weight_out, 
+ // cross validation stuff
+ int *powerP, int *cv_modeP, double *cv_value) {
+
+  // WARNING!!!
+  // count_in corresponding to number of points
+  // we need w_out for 2d smoothing part which also considering kernel
+
+  // power: 1 mean
+  //        2 1st derivative
+  //        3 2nd derivative
+  
+  double bandwidth = *bandwidthP;
+  int kernel = *kernelP, n_in = *n_inP, n_out = *n_outP, power = *powerP, cv_mode = *cv_modeP;
+
+  // cv_mode: 0 non-cv
+  //          1 ocv
+  //          2 gcv
+  //          3 geometric mean
+  //When cv mode is on, n_out must equal to n_in
+
+  //declaration for cv
+  double *h = NULL; // h_{ii} or trH / n
+  double *mu = NULL;  // for mean function used in cv, maybe a better name?
+  double sumh = 0;
+  if (cv_mode != 0) {
+    // when do cv, we need save mu somewhere
+    // when power is 1, mu is same to output
+    // but in other case, we need some place to save mu separately
+    // power = 1; //set output to mu
+    h = (double *) calloc(n_out, sizeof(double));
+    mu = (double *) calloc(n_out, sizeof(double));
+  }
+
+  // 
+  double *temp_weight = NULL; // save weight for 2d smoothing
+  if (weight_out_need) {
+    temp_weight = (double *) calloc(n_in, sizeof(double));
+  }
+  //end of declaration for cv
+
+  double d0 = 0, d1 = 0, d2 = 0, d3 = 0, d4 = 0, d5 = 0, d6 = 0,
+  b1 = 0, b2 = 0, b3 = 0, b4 = 0, cur_x_out = 0, d = 0, d_bw = 0, w = 0, min_bw = x_in[n_in - 1];
+  int in_index = 0, out_index = 0, i = 0;
+
+  if (bandwidth < 0) {
+    fprintf(stderr, "Bandwidth choice for mu(t) and/or its derivative must be positive!\n");
+    return 1;
+  }
+
+#ifdef SORTNEED
+
+  quicksort(x_out, 0, n_out - 1);
+  mult_qsort (x_in, y_in, count_in, 0, n_in - 1);
+
+#endif
+
+  for (out_index = 0; out_index < n_out; out_index++) {
+    d0 = d1 = d2 = d3 = d4 = d5 = d6 = b1 = b2 = b3 = b4 = 0;
+    cur_x_out = x_out[out_index];
+    for (in_index = 0; in_index < n_in; in_index++) {
+      if (kernel == 0 || kernel == 1 || kernel == 4) {
+        // when using epan, rect, or quar
+        // using points within 1 bandwidth
+        if (x_in[in_index] < cur_x_out - bandwidth) {
+          continue;
+        }
+        if (x_in[in_index] > cur_x_out + bandwidth) {
+          //**************************************************//
+          // loop over temp_weight for final weight and clean it
+          break;
+        }
+      }
+      else {
+        // when using gauss, gausvar, 
+        // using points within 5 bandwidth
+        if (x_in[in_index] < cur_x_out - 5 * bandwidth) {
+          continue;
+        }
+        if (x_in[in_index] > cur_x_out + 5 * bandwidth) {
+          //**************************************************//
+          // loop over temp_weight for final weight and clean it
+          break;
+        }
+      }
+      d = cur_x_out - x_in[in_index];
+      d_bw = d / bandwidth;
+      switch (kernel) {
+        // here w is the real weight
+        case 0:
+        w = count_in[in_index] * (1 - d_bw * d_bw);
+        break;
+        case 1:
+        w = count_in[in_index];
+        break;
+        case 2:
+        w = count_in[in_index] / exp(d_bw * d_bw / 2);
+        break;
+        case 3:
+        d_bw = d_bw * d_bw;
+        w = count_in[in_index] / exp(d_bw / 2) * (1.25 - 0.25 * d_bw);
+        break;
+        case 4:
+        w = count_in[in_index] * (1 - 2 * d_bw * d_bw + d_bw * d_bw * d_bw * d_bw);
+        break;
+      }
+      // prepare weight for 2d smoothing
+      if (weight_out_need) {
+        temp_weight[in_index] = w;
+      }
+      d0 += w;
+      d1 += w * d;
+      d2 += w * d * d;
+      b1 += w * y_in[in_index];
+      b2 += w * d * y_in[in_index];
+      if (power > 1) {
+        d3 += w * d * d * d;
+        d4 += w * d * d * d * d;
+        b3 += w * d * d * y_in[in_index];
+      }
+      if (power > 2) {
+        d5 += w * d * d * d * d * d;
+        d6 += w * d * d * d * d * d * d;
+        b4 += w * d * d * d * y_in[in_index];
+      }
+    }
+    if (power == 1) {
+      output[out_index] = (b1*d2 - b2*d1)/(- d1*d1 + d0*d2);
+      if (cv_mode) {
+        //set h_{ii} and mu
+        h[out_index] = count_in[out_index] * A22 / (A11 * A22 - A12 * A12);
+        //**************************************************//
+        //mu[out_index] = blablaba
+      }
+    }
+    if (power == 2) {
+      output[out_index] = -(b2*d2*d2 + b1*d1*d4 - b1*d2*d3 - b2*d0*d4 + b3*d0*d3 - b3*d1*d2)/(d4*d1*d1 - 2*d1*d2*d3 + d2*d2*d2 - d0*d4*d2 + d0*d3*d3);
+      if (cv_mode) {
+        //set h_{ii} and mu
+        h[out_index] = count_in[out_index] * A22 / (A11 * A22 - A12 * A12);
+        //**************************************************//
+        //mu[out_index] = blablaba
+      }
+    }
+    if (power == 3) {
+      output[out_index] = 2*(b3*d0*d4*d4 - b1*d2*d4*d4 - b2*d3*d3*d3 + b1*d3*d3*d4 + b3*d2*d3*d3 + b4*d1*d3*d3 + b1*d2*d2*d6 - b4*d2*d2*d3 + b3*d1*d1*d6 - b4*d1*d1*d5 - b1*d1*d3*d6 + b1*d1*d4*d5 - b1*d2*d3*d5 + b2*d0*d3*d6 - b2*d0*d4*d5 - b2*d1*d2*d6 + b2*d1*d3*d5 + b2*d2*d3*d4 - b3*d0*d2*d6 - 2*b3*d1*d3*d4 + b4*d0*d2*d5 - b4*d0*d3*d4 + b4*d1*d2*d4)/(d6*d1*d1*d4 - d1*d1*d5*d5 - 2*d6*d1*d2*d3 + 2*d1*d2*d4*d5 + 2*d1*d3*d3*d5 - 2*d1*d3*d4*d4 + d6*d2*d2*d2 - 2*d2*d2*d3*d5 - d2*d2*d4*d4 + 3*d2*d3*d3*d4 - d0*d6*d2*d4 + d0*d2*d5*d5 - d3*d3*d3*d3 + d0*d6*d3*d3 - 2*d0*d3*d4*d5 + d0*d4*d4*d4);      
+      if (cv_mode) {
+        //set h_{ii} and mu
+        h[out_index] = count_in[out_index] * A22 / (A11 * A22 - A12 * A12);
+        //**************************************************//
+        //mu[out_index] = blablaba
+      }
+    }
+  //**************************************************//
+  // MAYBE loop over temp_weight for final weight and clean it
+
+  }
+
+  // gcv or geomean
+  if (cv_mode > 1) {
+    for (i = 0; i < n_in; i++) {
+      sumh += h[i];
+    }
+    sumh /= n_in;
+    for (i = 0; i < n_in; i++) {
+      h[i] = sumh;
+    }
+  }
+
+  if (cv_mode) {
+    *cv_value = 0;
+    for (i = 0; i < n_in; i++) {
+      (*cv_value) += (y_in[i] - output[i]) * (y_in[i] - output[i]) / (1 - h[i]) / (1 - h[i]);
+    }
+    (*cv_value) /= n_in;
+    if (isnan(*cv_value)) {
+      *cv_value = INFINITY;
+    }
+  }
+  if (h != NULL) {
+    free(h);
+    h = NULL;
+  }
+  if (mu != NULL) {
+    free(mu);
+    mu = NULL;
+  }
+  return 0;
+}
+
+int binning2d(double *x1, double *x2, double *y, int *num_raw,
+ double *a10, double *a20, double *bin_length1, double *bin_length2, 
+ int *num_bins1, int *num_bins2, double *output, int *count) {
+  int nb1 = num_bins1[0], ind = 0;
+  int row_ind = 0, col_ind = 0;
+  double a1s = a10[0], a2s = a20[0], bl1 = bin_length1[0], bl2 = bin_length2[0];
+  for (int i = 0; i != *num_raw; i++) {
+    row_ind = (int) ((x2[i] - a2s) / bl2);
+    col_ind = (int) ((x1[i] - a1s) / bl1);
+    if (row_ind > (num_bins2[0] - 1)) {
+      row_ind--;
+    }
+    if (col_ind > (num_bins1[0] - 1)) {
+      col_ind--;
+    }
+    ind = row_ind * nb1 + col_ind;
+    output[ind] += y[i];
+    (count[ind])++;
+  }
+  for (int i = 0; i != num_bins1[0] * num_bins2[0]; i++) {
+    if (count[i] != 0) {
+      output[i] /= count[i];
+    }
+  }
+  return 0;
+}
+
+
+int lwls_seq (double *bandwidthP, int *kernelP, double *x_in, double *y_in, double *raw_w_in, 
+ double *x_out, double *output, int *n_inP, int *n_outP, int *in_col_size, int *out_col_size, 
+ int *powerP, int *cv_modeP, double *cv_value) {
+  int n_col = *n_inP / *in_col_size;
+  fprintf(stdout, "%d\n", n_col);
+  double *y_in_P = y_in, *raw_w_in_P = raw_w_in, *out_P = output;
+  int i = 0, j = 0;
+  double sum_cv_value = 0;
+  for (i = 0; i != n_col; i++) {
+    lwls(bandwidthP, kernelP, x_in, y_in_P, raw_w_in_P, x_out, out_P, 
+     in_col_size, n_outP, powerP, cv_modeP, cv_value);
+    if (i == 0) {
+      for (j = 0; j != *out_col_size; j++) {
+        fprintf(stdout, "%lf ", out_P[j]);
+      }
+    }
+    y_in_P = y_in_P + *in_col_size;
+    raw_w_in_P = raw_w_in_P + *in_col_size;
+    out_P = out_P + *out_col_size;
+    sum_cv_value += *cv_value;
+  }
+  *cv_value = sum_cv_value;
+  return 0;
+}

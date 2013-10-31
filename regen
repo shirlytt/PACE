@@ -1,0 +1,4 @@
+#/bin/bash
+rm ./lwls.so
+R CMD SHLIB -lm lwls.c
+rm ./lwls.o
