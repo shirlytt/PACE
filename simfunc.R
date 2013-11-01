@@ -124,4 +124,3 @@ SimuData <- function(n,setting,shape,error,CK){
   data <- list(x=x,y=y,scores=scores)
   return(data)
 }
-

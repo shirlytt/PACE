@@ -153,7 +153,7 @@ sigma_est = function(raw_cov, w2_in, bandwidth, kernel, userrange) {
   # variance of y
   
   var_y = lwls(bandwidth, kernel, x_in, var_y)$output
-
+  
   # variance by x
   raw_cov_only_x = raw_cov
   diag(raw_cov_only_x) = NA
@@ -164,19 +164,19 @@ sigma_est = function(raw_cov, w2_in, bandwidth, kernel, userrange) {
   
   # variance by yself
   sigma = trapz(x_in, var_y - var_x) / (max(x_in) - min(x_in))
-
+  
   if (sigma < 0) {
     cat('Estimated sigma is negative, reset to zero now!\n')
   }
-
+  
   max(0, sigma)
 }
 
 pcs_est = function(data, mu, hash, unique_hash, lambda, 
- eigen_func_data, cov_surface_fitted, sigma_old, 
- # switch
- # no switch for xi_est and y_pred since those are always needed
- sigma_new_switch = FALSE, xi_var_switch = FALSE) {
+                   eigen_func_data, cov_surface_fitted, sigma_old, 
+                   # switch
+                   # no switch for xi_est and y_pred since those are always needed
+                   sigma_new_switch = FALSE, xi_var_switch = FALSE) {
   sigma_new = 0
   xi_est = matrix(NA, ncol = ncol(eigen_func_data), nrow = nrow(data))
   y_pred = matrix(NA, ncol = ncol(data), nrow = nrow(data))
@@ -189,7 +189,7 @@ pcs_est = function(data, mu, hash, unique_hash, lambda,
     p = ncol(part_cov_surface_fitted)
     if (sum(flag) > 1) {
       junk = .Internal(La_svd('A', part_cov_surface_fitted, double(p), 
-                       matrix(double(p^2),p), matrix(double(p^2),p)))
+                              matrix(double(p^2),p), matrix(double(p^2),p)))
       # eval this middle_matrix since it's need for both xi_est and xi_var
       middle_matrix = diag(lambda) %*% t(eigen_func_data[flag,]) %*% t(junk$vt) %*% diag(1 / junk$d) %*% t(junk$u)
       if (sum(index) > 1) {
@@ -213,13 +213,13 @@ pcs_est = function(data, mu, hash, unique_hash, lambda,
     }
     # k: number of components
     # p: grids of output without missing (=sum(flag))
-
+    
     # diag(lambda):                                  k *          k
     # t(eigen_func_data[flag,]):                     k *          p
     # pinv:                                          p *          p
     # t(junk_y):                                     p * sum(index)
     # xi_est[index,]:                                sum(index) * k
-
+    
     # be careful here
     if (sum(flag) > 1) {
       y_pred[index, flag] = xi_est[index,] %*% t(eigen_func_data[flag,])
@@ -304,56 +304,56 @@ cv_rho = function(data, mu_data, lambda, eigen_func_data, cov_surface_fitted, al
 }
 
 FPCA = function(
- # raw data input format: 2 choice
- # 1: 
- # data: a data.frame, ith row is the vector of measurements 
- #       for the ith subject, i=1,...,n. 
- #       colnames is the value for time points.
- #       (default)
- # 2:
- # y: a list, y[[i]] is the vector of measurements for the
- #    ith subject, i=1,...,n.
- # x: a list, y[[i]] is the vector of time points for the
- #    ith subject, i=1,...,n.
- data, y, x, 
- # mean related
- bandwidth_mean, bandwidth_mean_cv_mode = c("geo_mean", "gcv", "cv"), 
- mu_data = NULL,
- # covariance related
- bandwidth_cov, bandwidth_cov_cv_mode = c("gcv", "geo_mean", "cv"), 
- # choosing number of components
- no_of_components = -1, 
- # method of choosing
- selection = c("FVE", "BIC", "AIC"), FVE_threshold = 0.95, 
- # maximum components
- maxk = 20, 
- # measurements error or not
- error = TRUE, 
- # grid of smoothed covariance surface
- cov_smooth_grid = 50, 
- # used for computing random effects \xi_{ik}
- # 'CE': conditional expectation method
- # 'IN': classical integration method
- method_pcs = c("CE", "IN"), 
- # applying shrinkage to estimates of random
- # coefficients (for regular data only)
- shrink = FALSE, 
- # kernel
- kernel = c("Auto", "Epanechnikov", "Rectangular", "Gaussian", "Quartic", "Gausvar"), 
-
- # number of bins
- # Don't let user set this part? It's just for speed up.
- # num_bins = NULL, 
-
- # truncation step agreement
- # use cross validation for rho or user define its value
- # using new method in FPCscore.pdf to obtain ridge
- new_ridge = TRUE,
- rho_cv = FALSE, rho = 0,
- # method to estimate mu
- method_mu = c("PACE", "RARE"), 
- # abandon rate
- out_percent = NULL, userrange = NULL) {
+  # raw data input format: 2 choice
+  # 1: 
+  # data: a data.frame, ith row is the vector of measurements 
+  #       for the ith subject, i=1,...,n. 
+  #       colnames is the value for time points.
+  #       (default)
+  # 2:
+  # y: a list, y[[i]] is the vector of measurements for the
+  #    ith subject, i=1,...,n.
+  # x: a list, y[[i]] is the vector of time points for the
+  #    ith subject, i=1,...,n.
+  data, y, x, 
+  # mean related
+  bandwidth_mean, bandwidth_mean_cv_mode = c("geo_mean", "gcv", "cv"), 
+  mu_data = NULL,
+  # covariance related
+  bandwidth_cov, bandwidth_cov_cv_mode = c("gcv", "geo_mean", "cv"), 
+  # choosing number of components
+  no_of_components = -1, 
+  # method of choosing
+  selection = c("FVE", "BIC", "AIC"), FVE_threshold = 0.95, 
+  # maximum components
+  maxk = 20, 
+  # measurements error or not
+  error = TRUE, 
+  # grid of smoothed covariance surface
+  cov_smooth_grid = 50, 
+  # used for computing random effects \xi_{ik}
+  # 'CE': conditional expectation method
+  # 'IN': classical integration method
+  method_pcs = c("CE", "IN"), 
+  # applying shrinkage to estimates of random
+  # coefficients (for regular data only)
+  shrink = FALSE, 
+  # kernel
+  kernel = c("Auto", "Epanechnikov", "Rectangular", "Gaussian", "Quartic", "Gausvar"), 
+  
+  # number of bins
+  # Don't let user set this part? It's just for speed up.
+  # num_bins = NULL, 
+  
+  # truncation step agreement
+  # use cross validation for rho or user define its value
+  # using new method in FPCscore.pdf to obtain ridge
+  new_ridge = TRUE,
+  rho_cv = FALSE, rho = 0,
+  # method to estimate mu
+  method_mu = c("PACE", "RARE"), 
+  # abandon rate
+  out_percent = NULL, userrange = NULL) {
   # check format 2 data validity
   if (missing(data)) {
     # it's ok since we have missing or other cases
@@ -375,31 +375,31 @@ FPCA = function(
   kernel = match.arg(kernel)
   bandwidth_mean_cv_mode = match.arg(bandwidth_mean_cv_mode)
   bandwidth_mean_cv_mode = switch(bandwidth_mean_cv_mode,
-      "cv" = 1, 
-      "gcv" = 2, 
-      "geo_mean" = 3)
-
+                                  "cv" = 1, 
+                                  "gcv" = 2, 
+                                  "geo_mean" = 3)
+  
   bandwidth_cov_cv_mode = match.arg(bandwidth_cov_cv_mode)
   bandwidth_cov_cv_mode = switch(bandwidth_cov_cv_mode,
-      "cv" = 1, 
-      "gcv" = 2, 
-      "geo_mean" = 3)
-
+                                 "cv" = 1, 
+                                 "gcv" = 2, 
+                                 "geo_mean" = 3)
+  
   # These three should move to part 3
   # However check them first to avoid unexpected exit in future and weast time
   selection = match.arg(selection)
   # method_pcs = match.arg(method_pcs)
   method_mu = match.arg(method_mu)
-
+  
   sigma = NULL
   mu_cov = NULL
-
+  
   # if (missing(method_pcs) && shrink) {
   #   shrink = FALSE
   #   cat('Shrinkage method is avaiable when method_pcs is "IN" and error is TRUE!\n',
   #       'Reset to shrinkage method = FALSE!\n', sep = "")
   # }
-
+  
   # check and reset number of components
   if (maxk > (cov_smooth_grid - 2)) {
     maxk = (cov_smooth_grid - 2)
@@ -425,7 +425,7 @@ FPCA = function(
           'Will choose automatically (Default method: FVE >= 0.95)!\n', sep = "")
     }
   }
-
+  
   # check regular and reformat y and x input into data.frame
   sparse_flag = FALSE
   if (missing(data)) {
@@ -433,7 +433,7 @@ FPCA = function(
     # the real problem is not whether sparse but procedure irregular
     # however, as long as data is irregular, previous procedure 
     # will judge it as sparse and do binning
-
+    
     # not clean here
     # however not a big deal
     if (regular == 'sparse') {
@@ -451,7 +451,7 @@ FPCA = function(
         d = grids[2] - grids[1]
         x_data = (grids[1:(length(grids)-1)] + grids[2:length(grids)]) / 2
         x_cov = seq(min(x_data), max(x_data), length.out = cov_smooth_grid + 1)
-
+        
         if (kernel == "Auto") {
           if(regular == 'regular' & num_bins >= 20) {
             kernel = "Epanechnikov"
@@ -460,19 +460,19 @@ FPCA = function(
             kernel = "Gaussian"
           }
         }
-
+        
         kernel = switch(kernel,
-          "Epanechnikov" = 0, 
-          "Rectangular" = 1, 
-          "Gaussian" = 2,
-          "Quartic" = 3, 
-          "Gausvar" = 4)
-
+                        "Epanechnikov" = 0, 
+                        "Rectangular" = 1, 
+                        "Gaussian" = 2,
+                        "Quartic" = 3, 
+                        "Gausvar" = 4)
+        
         # add kernel choose here
         if (missing(bandwidth_mean)) {
           bandwidth_mean = bandwidth_choice_1d(kernel = as.integer(kernel), 
-                            x_in = junkx, y_in = junky, w_in = rep(1, length(junkx)), 
-                            cv_mode = bandwidth_mean_cv_mode)
+                                               x_in = junkx, y_in = junky, w_in = rep(1, length(junkx)), 
+                                               cv_mode = bandwidth_mean_cv_mode)
         }
         # cat('Bandwidth for mean function is: ', bandwidth_mean, '.\n', sep = "")
         mu_data = lwls(bandwidth_mean, kernel = as.integer(kernel), x_in = junkx, y_in = junky, 
@@ -482,7 +482,7 @@ FPCA = function(
         rm(junkx, junky, junk_index, num_bins, minx, maxx, grids, d)
       }
     }
-
+    
     # for sparse data, do binning same time
     data = reformat(x, y, regular)
   }
@@ -493,16 +493,16 @@ FPCA = function(
   else {
     regular = 'regular'
   }
-
+  
   if (sparse_flag) {
     cat('The design is ', regular, ' (convert from sparse).\n', sep = "")
   }
   else {
     cat('The design is ', regular, '.\n', sep = "")
   }
-
+  
   # if need, add binning part here
-
+  
   if (kernel == "Auto") {
     if(regular == 'regular' & ncol(data) >= 20) {
       kernel = "Epanechnikov"
@@ -511,32 +511,32 @@ FPCA = function(
       kernel = "Gaussian"
     }
   }
-
+  
   kernel = switch(kernel,
-    "Epanechnikov" = 0, 
-    "Rectangular" = 1, 
-    "Gaussian" = 2,
-    "Quartic" = 3, 
-    "Gausvar" = 4)
-
-
+                  "Epanechnikov" = 0, 
+                  "Rectangular" = 1, 
+                  "Gaussian" = 2,
+                  "Quartic" = 3, 
+                  "Gausvar" = 4)
+  
+  
   # Part I: Obtain smoothed mean curve.
   cat('Part I: Obtain smoothed mean curve.\n')
   x_data = as.double(colnames(data))
-    
+  
   # for future use
   x_min = min(x_data)
   x_max = max(x_data)
   x_cov = as.double(seq(x_min, x_max, length.out = cov_smooth_grid + 1))
   # x_cov = (x_cov[1:(length(x_cov)-1)] + x_cov[2:length(x_cov)]) / 2
-
+  
   y_data = as.double(colMeans(data, na.rm = TRUE))
   w_data = as.double(colSums(!is.na(data)))
-
+  
   if (missing(bandwidth_mean)) {
     bandwidth_mean = bandwidth_choice_1d(kernel = as.integer(kernel), 
-                      x_in = x_data, y_in = y_data, w_in = w_data, 
-                      cv_mode = bandwidth_mean_cv_mode)
+                                         x_in = x_data, y_in = y_data, w_in = w_data, 
+                                         cv_mode = bandwidth_mean_cv_mode)
   }
   cat('Bandwidth for mean function is: ', bandwidth_mean, '.\n', sep = "")
   if (is.null(mu_data)) {
@@ -546,7 +546,7 @@ FPCA = function(
     mu_cov = lwls(bandwidth_mean, kernel, x_data, y_data, w_data, x_out = x_cov)$output
   }
   rm(y_data, w_data)
-
+  
   # Part II: Obtain smoothed covariance surface.
   cat('Part II: Obtain smoothed covariance surface.\n')  
   # add weight
@@ -554,7 +554,7 @@ FPCA = function(
   raw_cov = junk$raw_cov
   w2_cov = junk$w2_in
   rm(junk)
-
+  
   # need fix after replace lwls_2d_vanilla()
   adhoc_raw_cov = adhoc_regular_cov(raw_cov, w2_cov)
   if (missing(bandwidth_cov)) {
@@ -562,19 +562,19 @@ FPCA = function(
                                         cv_mode = bandwidth_cov_cv_mode, 
                                         symmetric = TRUE)
   }
-
+  
   cat('Bandwidth for covariance surface are: ', bandwidth_cov[1], 
       ' ', bandwidth_cov[2], '.\n', sep = "")
-
+  
   diag(adhoc_raw_cov$newy) = NA  
   # quadratic form on diagonal?
   cov_surface_smoothed = lwls_2d_vanilla(bandwidth_cov, kernel, adhoc_raw_cov, 
                                          x_out1 = x_cov, x_out2 = x_cov)
   cov_surface_smoothed = (cov_surface_smoothed + t(cov_surface_smoothed)) / 2
-
+  
   # Part III: Choose number of principal components functions.
   cat('Part III: Choose number of principal components functions.\n')
-
+  
   if (is.numeric(out_percent)) {
     if (out_percent < 0) {
       out_percent = NULL
@@ -592,7 +592,7 @@ FPCA = function(
     }
     out_percent = NULL
   }
-
+  
   # not clean here, combin userrange with no cut off as userrange = full in future
   if (!is.null(userrange) | !is.null(out_percent)) {
     if (is.null(userrange)) {
@@ -610,7 +610,7 @@ FPCA = function(
     else {
       sigma = 0
     }
-
+    
     junk_index = x_data >= userrange[1] & x_data <= userrange[2]
     junk_x_data = x_data
     x_data = x_data[junk_index]
@@ -618,7 +618,7 @@ FPCA = function(
     x_cov = seq(min(x_data), max(x_data), length.out = cov_smooth_grid + 1)
     mu_data= mu_data[junk_index]
     mu_cov = approx(junk_x_cov, mu_cov, xout = x_cov)$y
-
+    
     new_coordinate = expand.grid(x_cov, x_cov)
     cov_surface_smoothed = matrix(interp2(junk_x_cov, junk_x_cov, cov_surface_smoothed, 
                                           new_coordinate[,2],  new_coordinate[,1],  method = "linear"), 
@@ -629,7 +629,7 @@ FPCA = function(
     data = data[!apply(data, 1, function(x) all(is.na(x))),]
     rm(junk_index, junk_x_data, junk_x_cov)
   }
-
+  
   if (is.null(sigma)) {
     if (error) {
       # should use quadratic form on diagonal to estimate Var(x(t)) 
@@ -639,9 +639,9 @@ FPCA = function(
       sigma = 0
     }    
   }
-
+  
   h = x_cov[2] - x_cov[1]
-
+  
   junk = eigen(cov_surface_smoothed, symmetric = TRUE)
   index = Im(junk$values) == 0 & Re(junk$values) > 0
   maxk_eigen = sum(index)
@@ -649,7 +649,7 @@ FPCA = function(
     cat('At most ', maxk_eigen, ' of PC can be selected!\n', sep = "")
     no_of_components = maxk_eigen
   }
-
+  
   eigen_values = junk$values[index]
   lambda = h * eigen_values
   FVE = cumsum(lambda / sum(lambda))
@@ -657,9 +657,9 @@ FPCA = function(
   if (missing(no_of_components) | no_of_components == -1) {
     if (selection == "FVE") {
       no_of_components = min(which(FVE >= FVE_threshold), maxk_eigen)
-    if (no_of_components < 2) {
-      no_of_components = 2
-    }
+      if (no_of_components < 2) {
+        no_of_components = 2
+      }
       cat("Best number of principal components selected by FVE: ", no_of_components, ".\n", 
           "It accounts for ", FVE[no_of_components] * 100, "% of total variation (threshold = ", FVE_threshold, ").\n", sep = "")
     }
@@ -672,10 +672,10 @@ FPCA = function(
       cat("No implement for AIC yet.")
     }
   }
-
+  
   eigen_values = eigen_values[1:no_of_components]
   lambda = h * eigen_values
-
+  
   eigen_func_cov = junk$vectors[,index]
   eigen_func_cov = eigen_func_cov[,1:no_of_components]
   for (i in 1:ncol(eigen_func_cov)) {
@@ -689,21 +689,21 @@ FPCA = function(
     eigen_func_data[,i] = spline(x = x_cov, y = eigen_func_cov[,i], xout = x_data)$y
     eigen_func_data[,i] = eigen_func_data[,i] / sqrt(trapz(x_data, eigen_func_data[,i] ^ 2))
   }
-
+  
   cov_surface_fitted = matrix(as.double(0), ncol = length(x_data), nrow = length(x_data))
   for (i in 1:ncol(eigen_func_data)) {
     cov_surface_fitted = cov_surface_fitted + 
-     lambda[i] * eigen_func_data[,i] %*% t(eigen_func_data[,i])
+      lambda[i] * eigen_func_data[,i] %*% t(eigen_func_data[,i])
   }
   cor_surface_fitted = cov2cor(cov_surface_fitted)
   rownames(cov_surface_fitted) = x_data
   colnames(cov_surface_fitted) = x_data
   rownames(cor_surface_fitted) = x_data
   colnames(cor_surface_fitted) = x_data
-
+  
   # Part IV: Perform principal components analysis.
   cat('Part IV: Perform principal components analysis.\n')
-
+  
   hash = apply(data, 1, function(x) do.call(paste, as.list(as.integer(!is.na(x)))))
   unique_hash = unique(hash)  
   # original getOriCurves.m
@@ -711,14 +711,14 @@ FPCA = function(
   # set up hash table to identify missing situation 
   # combin same missing situation subjects to improve speed
   # not meanful when subjects are all different
-
+  
   # always update sigma, means no case rho = -1 in paper
   
   if (error) {
     # \hat{\sigma}^2_{new,1} in FPCscore.pdf Step 1
     sigma_new_1 = pcs_est(data, mu_data, hash, unique_hash, lambda, eigen_func_data, 
                           cov_surface_fitted, sigma, sigma_new_switch = TRUE)$sigma_new
-
+    
     # \hat{\sigma}^2_{new,2} in FPCscore.pdf Step 2
     sigma_new_2 = pcs_est(data, mu_data, hash, unique_hash, lambda, eigen_func_data, 
                           cov_surface_fitted, sigma_new_1, sigma_new_switch = TRUE)$sigma_new
@@ -746,31 +746,30 @@ FPCA = function(
     regular = paste(regular, '(convert from sparse)')
   }
   ans = list(# mean related
-             x_data = x_data, mu_data = mu_data,
-             x_cov = x_cov, mu_cov = mu_cov, 
-             bandwidth_mean = bandwidth_mean, 
-             # covariance(correlation) related
-             cov_surface_smoothed = cov_surface_smoothed, 
-             cov_surface_fitted = cov_surface_fitted, 
-             bandwidth_cov = bandwidth_cov, 
-             cor_surface_fitted = cor_surface_fitted, 
-             # PCA related
-             no_of_components = no_of_components, lambda = lambda, 
-             # variables below are formatted by subjects
-             # eigen function value at input points
-             eigen_func_data = eigen_func_data, 
-             # eigen function value at output points
-             eigen_func_cov = eigen_func_cov, 
-             # Principal component scores and so on
-             xi_est = junk$xi_est, 
-             y_pred = junk$y_pred, 
-             xi_var = junk$xi_var, 
-             # etc
-             sigma = sigma, regular = regular, 
-             AIC = NA, BIC = NA, FVE = FVE,
-             # parameters for restricting the \hat{\sigma}^2_{new,2}
-             rho_opt = rho, sigmanew = sigma_new_2)
+    x_data = x_data, mu_data = mu_data,
+    x_cov = x_cov, mu_cov = mu_cov, 
+    bandwidth_mean = bandwidth_mean, 
+    # covariance(correlation) related
+    cov_surface_smoothed = cov_surface_smoothed, 
+    cov_surface_fitted = cov_surface_fitted, 
+    bandwidth_cov = bandwidth_cov, 
+    cor_surface_fitted = cor_surface_fitted, 
+    # PCA related
+    no_of_components = no_of_components, lambda = lambda, 
+    # variables below are formatted by subjects
+    # eigen function value at input points
+    eigen_func_data = eigen_func_data, 
+    # eigen function value at output points
+    eigen_func_cov = eigen_func_cov, 
+    # Principal component scores and so on
+    xi_est = junk$xi_est, 
+    y_pred = junk$y_pred, 
+    xi_var = junk$xi_var, 
+    # etc
+    sigma = sigma, regular = regular, 
+    AIC = NA, BIC = NA, FVE = FVE,
+    # parameters for restricting the \hat{\sigma}^2_{new,2}
+    rho_opt = rho, sigmanew = sigma_new_2)
   class(ans) = "FPCA"
   ans
 }
-

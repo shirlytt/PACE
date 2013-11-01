@@ -30,10 +30,10 @@ n_in_s = as.integer(length(y_in_s))
 n_out_s = as.integer(length(output_s))
 
 single = .C('lwls', bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in_s, w_in = w_in_s, 
- x_out = x_out, output = output_s, n_in = n_in_s, n_out = n_out_s, 
- power = power, cv_mode = cv_mode, cv_value = cv_value)
+            x_out = x_out, output = output_s, n_in = n_in_s, n_out = n_out_s, 
+            power = power, cv_mode = cv_mode, cv_value = cv_value)
 
 
 ans = .C('lwls_seq', bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in, w_in = w_in, 
- x_out = x_out, output = output, n_in = n_in, n_out = n_out, in_col_size = in_col_size, out_col_size = out_col_size, 
- power = power, cv_mode = cv_mode, cv_value = cv_value)
+         x_out = x_out, output = output, n_in = n_in, n_out = n_out, in_col_size = in_col_size, out_col_size = out_col_size, 
+         power = power, cv_mode = cv_mode, cv_value = cv_value)

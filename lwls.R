@@ -1,5 +1,6 @@
 dyn.load('~/Dropbox/paCe/lwls.so')
 
+# R binning become useless?
 binning = function(x, y, num_bins = 51, a0 = min(x), b0 = max(x)) {
   valid = (!is.na(x) & !is.na(y))
   x = x[valid]
@@ -11,7 +12,6 @@ binning = function(x, y, num_bins = 51, a0 = min(x), b0 = max(x)) {
   newy = as.vector(tapply(y, ind, mean)[count > 0])
   count = as.vector(count)
   ans = list(newx = newx, newy = newy, count = count[count > 0])
-  class(ans) = "FDA_1d_binned_data"
   ans
 }
 
@@ -26,21 +26,21 @@ find_max_bandwidth = function(x_in) {
 }
 
 lwls = function(bandwidth, kernel, x_in, y_in, 
- count_in = rep(1 / length(x_in), length(x_in)), 
- weight_out_need = FALSE,
- x_out, power = 1, cv_mode = 0) {
+                count_in = rep(1 / length(x_in), length(x_in)), 
+                weight_out_need = FALSE,
+                x_out, power = 1, cv_mode = 0) {
   ##kernel:
   #0 epanechnikov
   #1 rectangle
   #2 gaussian
   #3 quartic
   #4 variant of Gaussian
-
+  
   ##power: 
   #1 mean
   #2 1st derivative
   #3 2nd derivative
-
+  
   #cv_mode
   #0 no cv calculation
   #1 ordinary cross-validation
@@ -50,15 +50,15 @@ lwls = function(bandwidth, kernel, x_in, y_in,
   if (missing(x_out)) {
     x_out = x_in
   }
-
+  
   # user should not rely on this check
   valid = (!is.na(x_in) & !is.na(y_in) & !is.na(count_in) & !is.infinite(x_in) & !is.infinite(y_in) & !is.infinite(count_in))
   x_in = x_in[valid]
   y_in = y_in[valid]
   count_in = count_in[valid]
-
+  
   # comment this part before we figure out how to calculate y error
-
+  
   # out = x_out > max(x_in)
   # if (sum(out) > 0) {
   #   warning('Some x_out which is larger than valid maximum x_in will be removed!')
@@ -69,11 +69,11 @@ lwls = function(bandwidth, kernel, x_in, y_in,
   #   warning('Some x_out which is smaller than valid minimum x_in will be removed!')
   # }
   # x_out = x_out[!out]
-
-  if (any(diff(x_in) > ((max(x_in) - min(x_in)) / 4))) {
+  
+  if (any(diff(x_in) > ((max(x_in) - min(x_in)) / 3))) {
     stop('The data is too sparse!')
   }
-
+  
   bandwidth = as.double(bandwidth)
   kernel = as.integer(kernel)
   x_in = as.double(x_in)
@@ -91,16 +91,16 @@ lwls = function(bandwidth, kernel, x_in, y_in,
   cv_mode = as.integer(cv_mode)
   cv_value = as.double(0)
   .C("lwls", 
-    bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in, count_in = count_in, 
-    n_in = n_in, n_out = n_out, weight_out_need = weight_out_need,
-    x_out = x_out, output = output, weight_out = weight_out,
-    power = power, cv_mode = cv_mode, cv_value = cv_value)
+     bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in, count_in = count_in, 
+     n_in = n_in, n_out = n_out, weight_out_need = weight_out_need,
+     x_out = x_out, output = output, weight_out = weight_out,
+     power = power, cv_mode = cv_mode, cv_value = cv_value)
 }
 
 bandwidth_choice_1d = function(kernel = 0, x_in, y_in, w_in, cv_mode = 3) {
   ad_hoc_lwls = function(bw) {
     lwls(bw, kernel, x_in, y_in, w_in, 
-     weight_out_need = FALSE, power = 1, cv_mode = cv_mode)$cv_value
+         weight_out_need = FALSE, power = 1, cv_mode = cv_mode)$cv_value
   }
   optimize(ad_hoc_lwls, lower = find_min_bandwidth(x_in), upper = find_max_bandwidth(x_in))$minimum
 }
@@ -141,8 +141,8 @@ bandwidth_choice_1d = function(kernel = 0, x_in, y_in, w_in, cv_mode = 3) {
 #  1.637   0.000   1.639
 # however vanilla matches matlab result
 lwls_seq = function(bandwidth, kernel, x_in, y_in, w_in, 
- weight_out_need = TRUE,
- x_out, power = 1, cv_mode = 0) {
+                    weight_out_need = TRUE,
+                    x_out, power = 1, cv_mode = 0) {
   if (as.integer(length(y_in) / length(x_in)) * length(x_in) != length(y_in)) {
     stop('Wrong data size!')
   }
@@ -166,25 +166,25 @@ lwls_seq = function(bandwidth, kernel, x_in, y_in, w_in,
   cv_mode = as.integer(cv_mode)
   cv_value = as.double(0)
   .C("lwls_seq", 
-    bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in, w_in = w_in, 
-    n_in = n_in, n_out = n_out, n_col = n_col, weight_out_need = weight_out_need,
-    x_out = x_out, output = output, weight_out = weight_out,
-    power = power, cv_mode = cv_mode, cv_value = cv_value, NAOK = TRUE)
+     bandwidth = bandwidth, kernel = kernel, x_in = x_in, y_in = y_in, w_in = w_in, 
+     n_in = n_in, n_out = n_out, n_col = n_col, weight_out_need = weight_out_need,
+     x_out = x_out, output = output, weight_out = weight_out,
+     power = power, cv_mode = cv_mode, cv_value = cv_value, NAOK = TRUE)
 }
 
 lwls_2d = function(bandwidth, kernel, x_in_1, x_in_2, y_in, count_in, 
- x_out_1 = x_in_1, x_out_2 = x_in_2, power = 1, cv_mode = 0) {
+                   x_out_1 = x_in_1, x_out_2 = x_in_2, power = 1, cv_mode = 0) {
   # in 1st smoothing we always need weight for 2nd step
   # x_in_1 is the index along rows
   middle_stage = lwls_seq(bandwidth[1], kernel, x_in_1, y_in, count_in, 
-   weight_out_need = TRUE, x_out_1, power, cv_mode)
+                          weight_out_need = TRUE, x_out_1, power, cv_mode)
   # newy = matrix(middle_stage$output, ncol = length(y_in) / length(x_in_1), byrow = FALSE)
   # neww = matrix(middle_stage$weight_out, ncol = length(y_in) / length(x_in_1), byrow = FALSE)
   newy = matrix(middle_stage$output, ncol = length(y_in) / length(x_in_1), byrow = TRUE)
   neww = matrix(middle_stage$weight_out, ncol = length(y_in) / length(x_in_1), byrow = TRUE)
   # for test
   # neww = sweep(neww, 1, rowSums(neww), "/")
-
+  
   ans = matrix(lwls_seq(bandwidth[2], kernel, x_in_2, newy, neww, 
                         weight_out_need = FALSE, x_out_2, power, cv_mode)$output, 
                nrow = length(x_out_1), byrow = TRUE)
@@ -227,7 +227,7 @@ lwls_2d_vanilla = function(bandwidth, kernel, data, x_out1, x_out2, power = 1, c
   non_spare_row = apply(data$count, 1, function(x) sum(x != 0)) > 3
   y = data$newy[non_spare_row,]
   count = data$count[non_spare_row,]
-
+  
   middle_stage1 = matrix(as.numeric(NA), nrow = nrow(y), ncol = length(x_out1))
   middle_weight1 = matrix(as.numeric(NA), nrow = nrow(y), ncol = length(x_out1))
   mu1 = matrix(as.numeric(NA), nrow = length(x_out2), ncol = length(x_out1))
@@ -235,7 +235,7 @@ lwls_2d_vanilla = function(bandwidth, kernel, data, x_out1, x_out2, power = 1, c
     ind = count[i,] > 0
     w = count[i,ind]
     junk = lwls(bandwidth[1], kernel, x_in1[ind], y[i,ind], w / sum(w), weight_out_need = TRUE,
-      x_out = x_out1, power = 1, cv_mode = cv_mode[1])
+                x_out = x_out1, power = 1, cv_mode = cv_mode[1])
     # junk = lwls(bandwidth[1], kernel, x_in1[ind], y[i,ind], w, weight_out_need = TRUE,
     #   x_out = x_out1, power = 1, cv_mode = cv_mode)
     middle_stage1[i,] = junk$output
@@ -255,7 +255,7 @@ lwls_2d_vanilla = function(bandwidth, kernel, data, x_out1, x_out2, power = 1, c
     # mu1[,i] = lwls(bandwidth[2], kernel, x_in2, middle_stage1[,i], w / sum(w), 
     #   x_out = x_out2, power = 1, cv_mode = 0)$output
     mu1[,i] = lwls(bandwidth[2], kernel, x_in2, middle_stage1[,i], w, 
-      x_out = x_out2, power = 1, cv_mode = cv_mode[2])$output
+                   x_out = x_out2, power = 1, cv_mode = cv_mode[2])$output
     if (cv_mode[2] > 0) {
       cv_value = junk$cv_value
     }
@@ -265,12 +265,12 @@ lwls_2d_vanilla = function(bandwidth, kernel, data, x_out1, x_out2, power = 1, c
   }
   colnames(mu1) = x_out1
   rownames(mu1) = x_out2
-
+  
   mu1
   # ans$middle_stage1 = middle_stage1
   # ans$middle_weight1 = middle_weight1
   # ans$mu1 = mu1
-
+  
   # # smooth in another order
   # #skip for now
   # middle_stage2 = matrix(as.numeric(NA), nrow = length(x_out2), ncol = ncol(y))

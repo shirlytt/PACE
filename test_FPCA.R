@@ -8,7 +8,7 @@ n = 100
 # for (setting in 1:4) {
 setting = 4
 # for (shape in 1:2) {
-shape = 1
+shape = 2
 # for (error in c(0,1,5)) {
 error = 1
 # for (CK in c(2, 5)) {
@@ -20,9 +20,9 @@ for(i in 1:Nsimu){
   DataS[[i]] = SimuData(n,setting,shape,error,CK)
 }
 i = 1
-  y = DataS[[i]]$y
-  t = DataS[[i]]$x
-  x = FPCA(y = y, x = t, out_percent = 0.05)
+y = DataS[[i]]$y
+t = DataS[[i]]$x
+x = FPCA(y = y, x = t, out_percent = 0.05, rho_cv = TRUE)
 
 
 sigmas = list()
@@ -88,14 +88,14 @@ eigenfunc1_imse = unlist(eigenfunc1_imse)
 eigenfunc2_imse = unlist(eigenfunc2_imse)
 
 if (error > 0) {
-save(sigma_bias,sigma_var,sigma_mse,first_lambda_bias,first_lambda_var,first_lambda_mse,second_lambda_bias,second_lambda_var,second_lambda_mse,no_of_comp,mu_imse,eigenfunc1_imse,eigenfunc2_imse, file = paste0(ext, '.rda'))
-png(paste0(ext, 'sigma.png'))
-plot(density(unlist(sigmas)))
-abline(v=1)
-dev.off()
+  save(sigma_bias,sigma_var,sigma_mse,first_lambda_bias,first_lambda_var,first_lambda_mse,second_lambda_bias,second_lambda_var,second_lambda_mse,no_of_comp,mu_imse,eigenfunc1_imse,eigenfunc2_imse, file = paste0(ext, '.rda'))
+  png(paste0(ext, 'sigma.png'))
+  plot(density(unlist(sigmas)))
+  abline(v=1)
+  dev.off()
 }
 else {
-save(first_lambda_bias,first_lambda_var,first_lambda_mse,second_lambda_bias,second_lambda_var,second_lambda_mse,no_of_comp,mu_imse,eigenfunc1_imse,eigenfunc2_imse, file = paste0(ext, '.rda'))
+  save(first_lambda_bias,first_lambda_var,first_lambda_mse,second_lambda_bias,second_lambda_var,second_lambda_mse,no_of_comp,mu_imse,eigenfunc1_imse,eigenfunc2_imse, file = paste0(ext, '.rda'))
 }
 
 png(paste0(ext, 'first_lambda.png'))
