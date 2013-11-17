@@ -1,0 +1,206 @@
+require(caTools)
+require(pracma)
+
+# options(warn = 2)
+options(error = recover)
+
+# source local weighted least square functions
+source('lwls.R')
+
+PACE = setRefClass(Class = "PACE",
+  fields = list(
+      # data after binning
+      data = "matrix",
+      num_subject = "numeric",
+      regular = "character",
+      bandwidth_mean = "numeric",
+      bandwidth_cov = "numeric",
+      num_bins = "numeric",
+      cov_grid = "numeric",
+      x_data = "numeric",
+      mu_data = "numeric",
+      raw_cov = "matrix",
+      2d_weight = "matrix",
+      x_cov = "numeric",
+      mu_cov = "numeric",
+      kernel = "character",
+      bandwidth_mean_cv_mode = "character",
+      bandwidth_cov_cv_mode = "character",
+      FVE_threshold = "numeric",
+      error = "logical",
+      new_ridge = "logical",
+      rho_cv = "logical",
+      rho = "numeric",
+      out_percent = "numeric",
+      userrange = "numeric"
+    ),
+  methods = list(
+    initialize = function(x , y
+      bandwidth_mean = 0,
+      bandwidth_cov = 0,
+      num_bins = NULL,
+      cov_grid = 50,
+      kernel = c("Auto",
+                 "Epanechnikov",
+                 "Rectangular",
+                 "Gaussian",
+                 "Quartic",
+                 "Gausvar"),
+      bandwidth_mean_cv_mode = c("geo_mean", "gcv", "cv"),
+      bandwidth_cov_cv_mode = c("geo_mean", "gcv", "cv"),
+      FVE_threshold = 0.95)
+    {
+      num_subject <<- length(x)
+      kernel <<- match.arg(kernel)
+      bandwidth_mean_cv_mode <<- match.arg(bandwidth_mean_cv_mode)
+      bandwidth_mean_cv_mode = switch(bandwidth_mean_cv_mode,
+                                      "cv" = 1,
+                                      "gcv" = 2,
+                                      "geo_mean" = 3)
+      bandwidth_cov_cv_mode <<- match.arg(bandwidth_cov_cv_mode)
+      bandwidth_cov_cv_mode = switch(bandwidth_cov_cv_mode,
+                                     "cv" = 1,
+                                     "gcv" = 2,
+                                     "geo_mean" = 3)
+      cov_grid <<- cov_grid
+      # check regular
+      regular <<- 'sparse'
+      xx = unlist(x)
+      f = length(xx) / length(unique(xx)) / num_subject
+      if (f > 0.75) {
+        regular <<- 'missing'
+      }
+      if (f == 1) {
+        regular <<- 'regular'
+      }
+      cat('The design is ', regular, '.\n', sep = "")
+      ## binning
+      r = range(xx)
+      rm(xx)
+      # no of bins
+      if (is.null(num_bins)) {
+        m = median(sapply(x, length))
+        mm = max(sapply(x, length))
+        if (num_subject <= 5000) {
+          if (mm <= 400 | m <= 20) {
+            if (regular == 'sparse') {
+              # irregular or sparse
+              num_bins <<- 50
+            }
+            else {
+              num_bins <<- mm
+            }
+          }
+          else {
+            num_bins <<- 400
+          }
+        }
+        else {
+          m_star = max(20, round((5000 - num_subject) * 19 / 2250 + 400))
+          if (m > m_star) {
+            num_bins <<- m_star
+          }
+          else {
+            if (regular == 'sparse') {
+              # irregular or sparse
+              num_bins <<- 50
+            }
+            else {
+              num_bins <<- mm
+            }
+          }
+          rm(m_star)
+        }
+        rm(m, mm)
+      }
+      else {
+        if (num_bins == 0) {
+          num_bins <<- length(x[[1]])
+        }
+        else {
+          num_bins <<- num_bins
+        }
+
+      }
+      # binning grid
+      d = diff(r) / num_bins
+      x_data <<- seq(r[1] + d / 2,
+                     r[2] - d / 2,
+                     length.out = num_bins)
+      d = diff(r) / cov_grid
+      x_cov <<- seq(r[1] + d / 2,
+                    r[2] - d / 2,
+                    length.out = cov_grid)
+      grids = seq(r[1], r[2], length.out = num_bins + 1)
+      # C?
+      for (i in 1:num_subject) {
+        data[i,] <<- as.vector(by(y[[i]], cut(x[[i]], grids, include.lowest = TRUE), mean))
+      }
+      rm(d, r)
+
+      # Part I: Obtain smoothed mean curve.
+      cat('Part I: Obtain smoothed mean curve.\n')
+      set_mean()
+
+      # Part II: Obtain smoothed covariance surface.
+      cat('Part II: Obtain smoothed covariance surface.\n')
+      # set raw cov mat
+      set_raw_cov()
+      # set smoothed cov mat
+      set_smoothed_cov()
+
+      # Part III: Choose number of principal components functions.
+      cat('Part III: Choose number of principal components functions.\n')
+
+
+    },
+    set_mean = funcion() {
+      if (kernel == "Auto") {
+        if(regular == 'regular' & num_bins >= 20) {
+          kernel = "Epanechnikov"
+        }
+        else {
+          kernel = "Gaussian"
+        }pp
+      }pp
+      kernel <<- kernel
+      kernel = switch(kernel,
+                      "Epanechnikov" = 0,
+                      "Rectangular" = 1,
+                      "Gaussian" = 2,
+                      "Quartic" = 3,
+                      "Gausvar" = 4)
+      # x_data = x_data
+      y_data = as.double(colMeans(data, na.rm = TRUE))
+      w_data = as.double(colSums(!is.na(data)))
+      if (bandwidth_mean == 0) {
+        bandwidth_mean = bandwidth_choice_1d(kernel = as.integer(kernel),
+                                             x_in = x_data, y_in = y_data, w_in = w_data,
+                                             cv_mode = bandwidth_mean_cv_mode)
+      }
+      bandwidth_mean <<- bandwidth_mean
+      cat('Bandwidth for mean function is: ', bandwidth_mean, '.\n', sep = "")
+      mu_data <<- lwls(bandwidth_mean, kernel, x_data, y_data, w_data, x_out = x_data)$output
+      mu_cov <<- lwls(bandwidth_mean, kernel, x_data, y_data, w_data, x_out = x_cov)$output
+    },
+    set_raw_cov = function() {
+      data = as.matrix(sweep(data, 2, mu_data, '-'))
+      if (regular == 'regular') {
+        raw_cov <<- t(data) %*% data / n
+        2d_weight <<- matrix(n, ncol = ncol(data), nrow = ncol(data))
+      }
+      else {
+        raw_cov <<- matrix(NA, p, p)
+        2d_weight <<- matrix(NA, p, p)
+        for (i in 1:p) {
+          for (j in i:p) {
+            raw_cov[i,j] <<- raw_cov[j,i] = mean(data[,i] * data[,j], na.rm = TRUE)
+            2d_weight[i,j] <<- 2d_weight[j,i] = sum(!(is.na(data[,i]) | is.na(data[,j])))
+          }
+        }
+      }
+    },
+    set_smoothed_cov = function() {
+    }
+
+    ))

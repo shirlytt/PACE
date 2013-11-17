@@ -89,12 +89,15 @@ int lwls(
         fprintf(stderr, "Bandwidth choice for mu(t) and/or its derivative must be positive!\n");
         return 1;
     }
-    
     // loop over out point, set output and weight for next lwls seq
     for (out_index = 0; out_index < n_out; out_index++) {
         d0 = d1 = d2 = d3 = d4 = d5 = d6 = b1 = b2 = b3 = b4 = 0;
         cur_x_out = x_out[out_index];
         for (in_index = 0; in_index < n_in; in_index++) {
+            // May have better check choice, like isnan(y_in[in_index])
+            if (count_in[in_index] == 0) {
+                continue;
+            }
             if (kernel == 0 || kernel == 1 || kernel == 4) {
                 // when using epan, rect, or quar
                 // using points within 1 bandwidth
@@ -212,7 +215,7 @@ int lwls(
             }
         }
     }
-    //end of loop
+    //end of out_index loop
     
     // gcv or geomean
     if (cv_mode > 1) {
@@ -254,32 +257,32 @@ int lwls(
     return 0;
 }
 
-int binning2d(double *x1, double *x2, double *y, int *num_raw,
-              double *a10, double *a20, double *bin_length1, double *bin_length2,
-              int *num_bins1, int *num_bins2, double *output, int *count) {
-    int nb1 = num_bins1[0], ind = 0;
-    int row_ind = 0, col_ind = 0;
-    double a1s = a10[0], a2s = a20[0], bl1 = bin_length1[0], bl2 = bin_length2[0];
-    for (int i = 0; i != *num_raw; i++) {
-        row_ind = (int) ((x2[i] - a2s) / bl2);
-        col_ind = (int) ((x1[i] - a1s) / bl1);
-        if (row_ind > (num_bins2[0] - 1)) {
-            row_ind--;
-        }
-        if (col_ind > (num_bins1[0] - 1)) {
-            col_ind--;
-        }
-        ind = row_ind * nb1 + col_ind;
-        output[ind] += y[i];
-        (count[ind])++;
-    }
-    for (int i = 0; i != num_bins1[0] * num_bins2[0]; i++) {
-        if (count[i] != 0) {
-            output[i] /= count[i];
-        }
-    }
-    return 0;
-}
+//int binning2d(double *x1, double *x2, double *y, int *num_raw,
+//              double *a10, double *a20, double *bin_length1, double *bin_length2,
+//              int *num_bins1, int *num_bins2, double *output, int *count) {
+//    int nb1 = num_bins1[0], ind = 0;
+//    int row_ind = 0, col_ind = 0;
+//    double a1s = a10[0], a2s = a20[0], bl1 = bin_length1[0], bl2 = bin_length2[0];
+//    for (int i = 0; i != *num_raw; i++) {
+//        row_ind = (int) ((x2[i] - a2s) / bl2);
+//        col_ind = (int) ((x1[i] - a1s) / bl1);
+//        if (row_ind > (num_bins2[0] - 1)) {
+//            row_ind--;
+//        }
+//        if (col_ind > (num_bins1[0] - 1)) {
+//            col_ind--;
+//        }
+//        ind = row_ind * nb1 + col_ind;
+//        output[ind] += y[i];
+//        (count[ind])++;
+//    }
+//    for (int i = 0; i != num_bins1[0] * num_bins2[0]; i++) {
+//        if (count[i] != 0) {
+//            output[i] /= count[i];
+//        }
+//    }
+//    return 0;
+//}
 
 
 int lwls_seq (
@@ -317,8 +320,9 @@ int lwls_seq (
     for (col_index = 0; col_index != *n_colP; col_index++) {
         lwls(bandwidthP, kernelP, x_in, y_col_in, w_col_in,
              &n_row_in, &n_row_out, weight_out_need, 
-             x_out, output_col, w_col_out, 
+             x_out, output_col, w_col_out,
              powerP, cv_modeP, cv_value);
+        printf("%4.2f %4.2f %4.2f %4.2f \n", w_col_out[0], w_col_out[1], w_col_out[2], w_col_out[3]);
         sum_cv_value += *cv_value;
         y_col_in = y_col_in + n_row_in;
         w_col_in = w_col_in + n_row_in;
